@@ -1,0 +1,19 @@
+[package]
+name = "yggdrasil-keygen"
+version = "0.1.0"
+authors = ["Jan Christian Grünhage <jan.christian@gruenhage.xyz>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.40"
+directories-next = "2.0.0"
+env_logger = "0.8.3"
+file-lock = { git = "https://gitlab.com/famedly/libraries/file-lock", branch = "updates" }
+rand = "0.7.3"
+serde = { version = "1.0.126", features = ["derive"] }
+serde_json = "1.0.64"
+serde_yaml = "0.8.17"
+tokio = { version = "1.6.0", features = ["macros", "rt-multi-thread", "sync"] }
+yggdrasil-keys = "0.2.2"
