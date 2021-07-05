@@ -61,9 +61,9 @@ impl Cache {
     }
     fn output(&mut self) -> Output {
         let sig = self.sig_keys.remove(0).0;
-        let (sig_pub, sig_sec) = sig.to_hex_split();
+        let (sig_sec, sig_pub) = sig.to_hex_split();
         let enc = self.enc_keys.remove(0).0;
-        let (enc_pub, enc_sec) = enc.to_hex_split();
+        let (enc_sec, enc_pub) = enc.to_hex_split();
         Output {
             sig_pub,
             sig_sec,
