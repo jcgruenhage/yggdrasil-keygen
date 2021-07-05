@@ -6,70 +6,57 @@ use fd_lock::{FdLock, FdLockGuard};
 use serde::{Deserialize, Serialize};
 use serde_yaml::from_reader;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use yggdrasil_keys::{EncryptionKeys, SigningKeys};
+use yggdrasil_keys::NodeIdentity;
 
 const KEY_CACHE_SIZE: usize = 2usize.pow(8);
 const KEY_GEN_TRIES: usize = 2usize.pow(16);
 
 #[derive(Serialize, Deserialize)]
 struct CacheFile {
-    sig_keys: Vec<(String, u32)>,
-    enc_keys: Vec<(String, u32)>,
+    keys: Vec<(String, u32)>,
+}
+
+impl CacheFile {
+    fn new() -> Self {
+        Self {
+            keys: vec![],
+        }
+    }
 }
 
 #[derive(Default)]
 struct Cache {
-    sig_keys: Vec<(SigningKeys, u32)>,
-    enc_keys: Vec<(EncryptionKeys, u32)>,
+    keys: Vec<(NodeIdentity, u32)>,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Output {
-    sig_pub: String,
-    sig_sec: String,
-    enc_pub: String,
-    enc_sec: String,
+    public: String,
+    secret: String,
     address: Ipv6Addr,
 }
 
 impl Cache {
-    fn add_sig_key(&mut self, key: SigningKeys, strength: u32) {
-        self.sig_keys.push((key, strength));
-        self.sig_keys.sort_by(|a, b| a.1.cmp(&b.1).reverse());
-        if self.sig_keys.len() > KEY_CACHE_SIZE {
-            self.sig_keys.pop();
+    fn add_identity(&mut self, identity: NodeIdentity, strength: u32) {
+        self.keys.push((identity, strength));
+        self.keys.sort_by(|a, b| a.1.cmp(&b.1).reverse());
+        if self.keys.len() > KEY_CACHE_SIZE {
+            self.keys.pop();
         }
     }
-    fn get_min_sig_strength(&self) -> u32 {
-        self.sig_keys
-            .last()
-            .map(|(_key, strength)| *strength)
-            .unwrap_or(0)
-    }
-    fn add_enc_key(&mut self, key: EncryptionKeys, strength: u32) {
-        self.enc_keys.push((key, strength));
-        self.enc_keys.sort_by(|a, b| a.1.cmp(&b.1).reverse());
-        if self.enc_keys.len() > KEY_CACHE_SIZE {
-            self.enc_keys.pop();
-        }
-    }
-    fn get_min_enc_strength(&self) -> u32 {
-        self.enc_keys
+    fn get_min_strength(&self) -> u32 {
+        self.keys
             .last()
             .map(|(_key, strength)| *strength)
             .unwrap_or(0)
     }
     fn output(&mut self) -> Output {
-        let sig = self.sig_keys.remove(0).0;
-        let (sig_sec, sig_pub) = sig.to_hex_split();
-        let enc = self.enc_keys.remove(0).0;
-        let (enc_sec, enc_pub) = enc.to_hex_split();
+        let identity = self.keys.remove(0).0;
+        let (secret, public) = identity.to_hex_split();
         Output {
-            sig_pub,
-            sig_sec,
-            enc_pub,
-            enc_sec,
-            address: enc.node_id().address(),
+            public,
+            secret,
+            address: identity.address(),
         }
     }
 }
@@ -77,17 +64,9 @@ impl Cache {
 impl Into<Cache> for CacheFile {
     fn into(self) -> Cache {
         Cache {
-            sig_keys: self
-                .sig_keys
+            keys: self.keys
                 .iter()
-                .map(|(key, strength)| (SigningKeys::from_hex(key, None), strength))
-                .filter(|(key, _strength)| key.is_ok())
-                .map(|(key, strength)| (key.unwrap(), *strength))
-                .collect(),
-            enc_keys: self
-                .enc_keys
-                .iter()
-                .map(|(key, strength)| (EncryptionKeys::from_hex(key, None), strength))
+                .map(|(key, strength)| (NodeIdentity::from_hex(key, None), strength))
                 .filter(|(key, _strength)| key.is_ok())
                 .map(|(key, strength)| (key.unwrap(), *strength))
                 .collect(),
@@ -98,13 +77,8 @@ impl Into<Cache> for CacheFile {
 impl Into<CacheFile> for Cache {
     fn into(self) -> CacheFile {
         CacheFile {
-            sig_keys: self
-                .sig_keys
-                .iter()
-                .map(|(key, strength)| (key.to_hex_joined(), *strength))
-                .collect(),
-            enc_keys: self
-                .enc_keys
+            keys: self
+                .keys
                 .iter()
                 .map(|(key, strength)| (key.to_hex_joined(), *strength))
                 .collect(),
@@ -127,24 +101,19 @@ async fn main() -> Result<()> {
 
     let cache: Cache = match guard.metadata()?.len() {
         0 => Cache::default(),
-        _ => from_reader::<&std::fs::File, CacheFile>(&guard)
-            .context("couldn't read cache from locked file")?
+        _ => from_reader::<&std::fs::File, CacheFile>(&guard).unwrap_or(CacheFile::new())
             .into(),
     };
 
-    let min_sig_strength = cache.get_min_sig_strength();
-    let min_enc_strength = cache.get_min_enc_strength();
+    let min_strength = cache.get_min_strength();
 
-    let (sig_tx, sig_rx) = unbounded_channel();
-    let (enc_tx, enc_rx) = unbounded_channel();
+    let (tx, rx) = unbounded_channel();
 
-    let cache_handle = tokio::spawn(receive_keys(sig_rx, enc_rx, cache));
+    let cache_handle = tokio::spawn(receive_keys(rx, cache));
     for _ in 0..KEY_GEN_TRIES {
-        tokio::spawn(generate_sig_keys(sig_tx.clone(), min_sig_strength));
-        tokio::spawn(generate_enc_keys(enc_tx.clone(), min_enc_strength));
+        tokio::spawn(generate_identities(tx.clone(), min_strength));
     }
-    drop(sig_tx);
-    drop(enc_tx);
+    drop(tx);
 
     let mut cache = cache_handle.await?;
 
@@ -158,34 +127,20 @@ async fn main() -> Result<()> {
 }
 
 async fn receive_keys(
-    mut sig_rx: UnboundedReceiver<(SigningKeys, u32)>,
-    mut enc_rx: UnboundedReceiver<(EncryptionKeys, u32)>,
+    mut rx: UnboundedReceiver<(NodeIdentity, u32)>,
     mut cache: Cache,
 ) -> Cache {
-    while let Some(sig) = sig_rx.recv().await {
-        cache.add_sig_key(sig.0, sig.1);
-    }
-    while let Some(enc) = enc_rx.recv().await {
-        cache.add_enc_key(enc.0, enc.1);
+    while let Some(id) = rx.recv().await {
+        cache.add_identity(id.0, id.1);
     }
     cache
 }
 
-async fn generate_sig_keys(tx: UnboundedSender<(SigningKeys, u32)>, min_sig_strength: u32) {
-    let sig = SigningKeys::new(&mut rand::thread_rng());
-    let strength = sig.tree_id().strength();
-    if strength > min_sig_strength {
+async fn generate_identities(tx: UnboundedSender<(NodeIdentity, u32)>, min_strength: u32) {
+    let sig = NodeIdentity::new(&mut rand::thread_rng());
+    let strength = sig.strength();
+    if strength > min_strength {
         tx.send((sig, strength))
-            .map_err(|_| "Could not send keys!")
-            .unwrap();
-    }
-}
-
-async fn generate_enc_keys(tx: UnboundedSender<(EncryptionKeys, u32)>, min_enc_strength: u32) {
-    let enc = EncryptionKeys::new(&mut rand::thread_rng());
-    let strength = enc.node_id().strength();
-    if strength > min_enc_strength {
-        tx.send((enc, strength))
             .map_err(|_| "Could not send keys!")
             .unwrap();
     }

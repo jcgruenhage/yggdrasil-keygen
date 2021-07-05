@@ -589,17 +589,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
-name = "x25519-dalek"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a0c105152107e3b96f6a00a65e86ce82d9b125230e1c4302940eca58ff71f4f"
-dependencies = [
- "curve25519-dalek",
- "rand_core",
- "zeroize",
-]
-
-[[package]]
 name = "yaml-rust"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,19 +615,15 @@ dependencies = [
 
 [[package]]
 name = "yggdrasil-keys"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0ce479fcfc414f468404e5d5f9e5ffd43aa94e05756acc056bf9e1e864d65be"
+checksum = "df3a7a852677c181ddb542ba1850d1586418ce43e35faebadf327b9e0413d422"
 dependencies = [
- "curve25519-dalek",
  "ed25519-dalek",
- "generic-array",
  "hex",
  "ipnet",
  "rand_core",
- "sha2",
  "thiserror",
- "x25519-dalek",
 ]
 
 [[package]]
