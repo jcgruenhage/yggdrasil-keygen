@@ -1,11 +1,8 @@
-use std::{
-    io::{Seek, SeekFrom},
-    net::Ipv6Addr,
-};
+use std::{fs::{File, OpenOptions}, io::{Seek, SeekFrom}, net::Ipv6Addr};
 
 use anyhow::{Context, Result};
 use directories_next::ProjectDirs;
-use file_lock::FileLock;
+use fd_lock::{FdLock, FdLockGuard};
 use serde::{Deserialize, Serialize};
 use serde_yaml::from_reader;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -124,18 +121,13 @@ async fn main() -> Result<()> {
     std::fs::create_dir_all(&cache_dir)?;
     let cache_path = cache_dir.join("cache.yaml");
 
-    let mut lock = FileLock::lock(
-        cache_path
-            .to_str()
-            .context("couldn't convert cache path to string")?,
-        true,
-        true,
-    )
-    .context("couldn't lock cache file")?;
+    let file = OpenOptions::new().read(true).write(true).create(true).open(cache_path)?;
+    let mut lock = FdLock::new(file);
+    let mut guard : FdLockGuard<File> = lock.lock().context("couldn't lock cache file")?;
 
-    let cache: Cache = match lock.file.metadata()?.len() {
+    let cache: Cache = match guard.metadata()?.len() {
         0 => Cache::default(),
-        _ => from_reader::<&std::fs::File, CacheFile>(&lock.file)
+        _ => from_reader::<&std::fs::File, CacheFile>(&guard)
             .context("couldn't read cache from locked file")?
             .into(),
     };
@@ -158,11 +150,10 @@ async fn main() -> Result<()> {
 
     serde_json::to_writer_pretty(std::io::stdout(), &cache.output())?;
 
-    lock.file.seek(SeekFrom::Start(0))?;
+    guard.seek(SeekFrom::Start(0))?;
 
-    serde_yaml::to_writer::<&std::fs::File, CacheFile>(&lock.file, &cache.into())?;
+    serde_yaml::to_writer::<&File, CacheFile>(&guard, &cache.into())?;
 
-    lock.unlock()?;
     Ok(())
 }
 

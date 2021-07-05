@@ -10,7 +10,7 @@ edition = "2018"
 anyhow = "1.0.40"
 directories-next = "2.0.0"
 env_logger = "0.8.3"
-file-lock = { git = "https://gitlab.com/famedly/libraries/file-lock", branch = "updates" }
+fd-lock = "2.0.0"
 rand = "0.7.3"
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"
