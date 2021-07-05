@@ -1,6 +1,6 @@
 [package]
 name = "yggdrasil-keygen"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jan Christian Grünhage <jan.christian@gruenhage.xyz>"]
 edition = "2018"
 
