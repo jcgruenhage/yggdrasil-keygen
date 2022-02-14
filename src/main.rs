@@ -1,4 +1,8 @@
-use std::{fs::{File, OpenOptions}, io::{Seek, SeekFrom}, net::Ipv6Addr};
+use std::{
+    fs::{File, OpenOptions},
+    io::{Seek, SeekFrom},
+    net::Ipv6Addr,
+};
 
 use anyhow::{Context, Result};
 use directories_next::ProjectDirs;
@@ -18,9 +22,7 @@ struct CacheFile {
 
 impl CacheFile {
     fn new() -> Self {
-        Self {
-            keys: vec![],
-        }
+        Self { keys: vec![] }
     }
 }
 
@@ -64,7 +66,8 @@ impl Cache {
 impl From<CacheFile> for Cache {
     fn from(cache_file: CacheFile) -> Self {
         Self {
-            keys: cache_file.keys
+            keys: cache_file
+                .keys
                 .iter()
                 .map(|(key, strength)| (NodeIdentity::from_hex(key, None), strength))
                 .filter(|(key, _strength)| key.is_ok())
@@ -95,13 +98,18 @@ async fn main() -> Result<()> {
     std::fs::create_dir_all(&cache_dir)?;
     let cache_path = cache_dir.join("cache.yaml");
 
-    let file = OpenOptions::new().read(true).write(true).create(true).open(cache_path)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(cache_path)?;
     let mut lock = RwLock::new(file);
-    let mut guard : RwLockWriteGuard<File> = lock.write().context("couldn't lock cache file")?;
+    let mut guard: RwLockWriteGuard<File> = lock.write().context("couldn't lock cache file")?;
 
     let cache: Cache = match guard.metadata()?.len() {
         0 => Cache::default(),
-        _ => from_reader::<&std::fs::File, CacheFile>(&guard).unwrap_or_else(|_| CacheFile::new())
+        _ => from_reader::<&std::fs::File, CacheFile>(&guard)
+            .unwrap_or_else(|_| CacheFile::new())
             .into(),
     };
 
@@ -126,10 +134,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn receive_keys(
-    mut rx: UnboundedReceiver<(NodeIdentity, u32)>,
-    mut cache: Cache,
-) -> Cache {
+async fn receive_keys(mut rx: UnboundedReceiver<(NodeIdentity, u32)>, mut cache: Cache) -> Cache {
     while let Some(id) = rx.recv().await {
         cache.add_identity(id.0, id.1);
     }
