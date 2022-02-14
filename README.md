@@ -20,8 +20,15 @@ $ yggdrasil-keygen
 }
 ```
 
+If you're using `yggdrasil-keygen` with `yggdrasil-go`, you need to append the
+public key to the private key in the config. `yggdrasil-go` uses the ed25519
+implementation from the go stdlib, which appends the public key to the private
+key.
+
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Pull requests are welcome. For major changes, please open an issue first to
+discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
 
