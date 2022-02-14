@@ -61,10 +61,10 @@ impl Cache {
     }
 }
 
-impl Into<Cache> for CacheFile {
-    fn into(self) -> Cache {
-        Cache {
-            keys: self.keys
+impl From<CacheFile> for Cache {
+    fn from(cache_file: CacheFile) -> Self {
+        Self {
+            keys: cache_file.keys
                 .iter()
                 .map(|(key, strength)| (NodeIdentity::from_hex(key, None), strength))
                 .filter(|(key, _strength)| key.is_ok())
@@ -74,10 +74,10 @@ impl Into<Cache> for CacheFile {
     }
 }
 
-impl Into<CacheFile> for Cache {
-    fn into(self) -> CacheFile {
+impl From<Cache> for CacheFile {
+    fn from(cache: Cache) -> CacheFile {
         CacheFile {
-            keys: self
+            keys: cache
                 .keys
                 .iter()
                 .map(|(key, strength)| (key.to_hex_joined(), *strength))
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
 
     let cache: Cache = match guard.metadata()?.len() {
         0 => Cache::default(),
-        _ => from_reader::<&std::fs::File, CacheFile>(&guard).unwrap_or(CacheFile::new())
+        _ => from_reader::<&std::fs::File, CacheFile>(&guard).unwrap_or_else(|_| CacheFile::new())
             .into(),
     };
 
