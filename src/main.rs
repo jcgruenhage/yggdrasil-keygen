@@ -2,7 +2,7 @@ use std::{fs::{File, OpenOptions}, io::{Seek, SeekFrom}, net::Ipv6Addr};
 
 use anyhow::{Context, Result};
 use directories_next::ProjectDirs;
-use fd_lock::{FdLock, FdLockGuard};
+use fd_lock::{RwLock, RwLockWriteGuard};
 use serde::{Deserialize, Serialize};
 use serde_yaml::from_reader;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -96,8 +96,8 @@ async fn main() -> Result<()> {
     let cache_path = cache_dir.join("cache.yaml");
 
     let file = OpenOptions::new().read(true).write(true).create(true).open(cache_path)?;
-    let mut lock = FdLock::new(file);
-    let mut guard : FdLockGuard<File> = lock.lock().context("couldn't lock cache file")?;
+    let mut lock = RwLock::new(file);
+    let mut guard : RwLockWriteGuard<File> = lock.write().context("couldn't lock cache file")?;
 
     let cache: Cache = match guard.metadata()?.len() {
         0 => Cache::default(),
