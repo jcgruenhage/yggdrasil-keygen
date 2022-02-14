@@ -1,0 +1,19 @@
+include:
+  - project: 'famedly/company/devops/templates/ci-cd'
+    ref: 'rust-v1'
+    file: '/rust.yml'
+
+stages:
+  - test
+  - build
+  - doc
+  - publish
+
+cargo-check:
+  extends: .cargo_check
+
+cargo-coverage:
+  extends: .cargo_coverage
+
+cargo-build:
+  extends: .cargo_build
