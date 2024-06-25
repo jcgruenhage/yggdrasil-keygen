@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### ⚙️ Miscellaneous Tasks
 
 - Add automatic changelog generation
+- Bump dependencies
 
 
 ## [0.2.1] - 2022-03-09
