@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - Add automatic changelog generation
 - Bump dependencies
+- Switch rust edition over to 2021
 
 
 ## [0.2.1] - 2022-03-09
