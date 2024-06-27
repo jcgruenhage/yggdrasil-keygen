@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog], and this project adheres to
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 [conventional commits]: https://www.conventionalcommits.org/en/v1.0.0/
 
+## [0.2.3] - 2024-06-27
+
+### ⚙️ Miscellaneous Tasks
+
+- Replace directories-next with directories
+
+
 ## [0.2.2] - 2024-06-25
 
 ### ⚙️ Miscellaneous Tasks

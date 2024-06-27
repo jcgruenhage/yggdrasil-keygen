@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use directories_next::ProjectDirs;
+use directories::ProjectDirs;
 use fd_lock::{RwLock, RwLockWriteGuard};
 use serde::{Deserialize, Serialize};
 use serde_yaml::from_reader;

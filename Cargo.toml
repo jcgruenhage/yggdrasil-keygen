@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-directories-next = "2"
+directories = "5"
 env_logger = "0.11"
 fd-lock = "4"
 rand = "0.8"
