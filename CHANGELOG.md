@@ -9,11 +9,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 [conventional commits]: https://www.conventionalcommits.org/en/v1.0.0/
 
-## [0.2.3] - 2024-06-27
+## [0.2.3] - 2024-08-31
 
 ### ⚙️ Miscellaneous Tasks
 
 - Replace directories-next with directories
+- Reflect in cache path that this is not a Famedly project anymore
 
 
 ## [0.2.2] - 2024-06-25

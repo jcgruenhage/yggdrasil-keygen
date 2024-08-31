@@ -91,12 +91,19 @@ impl From<Cache> for CacheFile {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let dirs = ProjectDirs::from("com", "Famedly GmbH", "Yggdrasil Key Generator")
+    let old_dirs = ProjectDirs::from("com", "Famedly GmbH", "Yggdrasil Key Generator")
+        .context("Couldn't find old project directory, is $HOME set?")?;
+    let dirs = ProjectDirs::from("", "", "yggdrasil-keygen")
         .context("Couldn't find project directory, is $HOME set?")?;
 
+    let old_cache_path = old_dirs.cache_dir().join("cache.yaml");
     let cache_dir = dirs.cache_dir();
     std::fs::create_dir_all(&cache_dir)?;
     let cache_path = cache_dir.join("cache.yaml");
+
+    if old_cache_path.exists() {
+        std::fs::rename(&old_cache_path, &cache_path)?;
+    }
 
     let file = OpenOptions::new()
         .read(true)
