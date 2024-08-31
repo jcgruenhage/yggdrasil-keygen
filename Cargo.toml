@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4.5.7", features = ["derive", "env", "wrap_help"] }
+clap = { version = "4.5.16", features = ["derive", "env", "wrap_help"] }
 directories = "5"
 env_logger = "0.11"
 fd-lock = "4"
