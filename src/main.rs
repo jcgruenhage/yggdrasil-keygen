@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use clap::Parser;
 use directories::ProjectDirs;
 use fd_lock::{RwLock, RwLockWriteGuard};
 use serde::{Deserialize, Serialize};
@@ -12,23 +13,23 @@ use serde_yaml::from_reader;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use yggdrasil_keys::NodeIdentity;
 
-const KEY_CACHE_SIZE: usize = 2usize.pow(8);
-const KEY_GEN_TRIES: usize = 2usize.pow(16);
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[arg(long, default_value_t = 256)]
+    cache_size: usize,
+    #[arg(short, long, default_value_t = 65536)]
+    tries: usize,
+}
 
 #[derive(Serialize, Deserialize)]
 struct CacheFile {
     keys: Vec<(String, u32)>,
 }
 
-impl CacheFile {
-    fn new() -> Self {
-        Self { keys: vec![] }
-    }
-}
-
-#[derive(Default)]
 struct Cache {
     keys: Vec<(NodeIdentity, u32)>,
+    target_size: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +43,7 @@ impl Cache {
     fn add_identity(&mut self, identity: NodeIdentity, strength: u32) {
         self.keys.push((identity, strength));
         self.keys.sort_by(|a, b| a.1.cmp(&b.1).reverse());
-        if self.keys.len() > KEY_CACHE_SIZE {
+        while self.keys.len() > self.target_size {
             self.keys.pop();
         }
     }
@@ -61,10 +62,7 @@ impl Cache {
             address: identity.address(),
         }
     }
-}
-
-impl From<CacheFile> for Cache {
-    fn from(cache_file: CacheFile) -> Self {
+    fn load(cache_file: CacheFile, target_size: usize) -> Self {
         Self {
             keys: cache_file
                 .keys
@@ -73,6 +71,14 @@ impl From<CacheFile> for Cache {
                 .filter(|(key, _strength)| key.is_ok())
                 .map(|(key, strength)| (key.unwrap(), *strength))
                 .collect(),
+            target_size,
+        }
+    }
+
+    fn new(target_size: usize) -> Self {
+        Self {
+            keys: Vec::new(),
+            target_size,
         }
     }
 }
@@ -91,6 +97,7 @@ impl From<Cache> for CacheFile {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
     let old_dirs = ProjectDirs::from("com", "Famedly GmbH", "Yggdrasil Key Generator")
         .context("Couldn't find old project directory, is $HOME set?")?;
     let dirs = ProjectDirs::from("", "", "yggdrasil-keygen")
@@ -114,10 +121,8 @@ async fn main() -> Result<()> {
     let mut guard: RwLockWriteGuard<File> = lock.write().context("couldn't lock cache file")?;
 
     let cache: Cache = match guard.metadata()?.len() {
-        0 => Cache::default(),
-        _ => from_reader::<&std::fs::File, CacheFile>(&guard)
-            .unwrap_or_else(|_| CacheFile::new())
-            .into(),
+        0 => Cache::new(cli.cache_size),
+        _ => Cache::load(from_reader::<&std::fs::File, CacheFile>(&guard)?, 65536),
     };
 
     let min_strength = cache.get_min_strength();
@@ -125,7 +130,7 @@ async fn main() -> Result<()> {
     let (tx, rx) = unbounded_channel();
 
     let cache_handle = tokio::spawn(receive_keys(rx, cache));
-    for _ in 0..KEY_GEN_TRIES {
+    for _ in 0..cli.tries {
         tokio::spawn(generate_identities(tx.clone(), min_strength));
     }
     drop(tx);

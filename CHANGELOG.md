@@ -9,7 +9,11 @@ The format is based on [Keep a Changelog], and this project adheres to
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 [conventional commits]: https://www.conventionalcommits.org/en/v1.0.0/
 
-## [0.2.3] - 2024-08-31
+## [0.3.0] - 2024-08-31
+
+### 🚀 Features
+
+- Add command line parameters for overriding tries and cache size
 
 ### ⚙️ Miscellaneous Tasks
 
