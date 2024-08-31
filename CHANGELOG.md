@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 - Replace directories-next with directories
 - Reflect in cache path that this is not a Famedly project anymore
 - Bump dependencies
+- Bump version to 0.3.0
 
 
 ## [0.2.2] - 2024-06-25
