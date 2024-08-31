@@ -2,6 +2,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{Seek, SeekFrom},
     net::Ipv6Addr,
+    path::PathBuf,
 };
 
 use anyhow::{Context, Result};
@@ -16,10 +17,18 @@ use yggdrasil_keys::NodeIdentity;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    #[arg(long, default_value_t = 256)]
-    cache_size: usize,
-    #[arg(short, long, default_value_t = 65536)]
-    tries: usize,
+    #[arg(long)]
+    cache_size: Option<usize>,
+    #[arg(short, long)]
+    tries: Option<usize>,
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+}
+
+#[derive(Deserialize, Default)]
+struct Config {
+    cache_size: Option<usize>,
+    tries: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -103,6 +112,17 @@ async fn main() -> Result<()> {
     let dirs = ProjectDirs::from("", "", "yggdrasil-keygen")
         .context("Couldn't find project directory, is $HOME set?")?;
 
+    let config_path = cli
+        .config
+        .unwrap_or_else(|| dirs.config_dir().join("config.yaml"));
+
+    let config: Config = if config_path.exists() {
+        let config_file = File::open(config_path)?;
+        serde_yaml::from_reader(config_file)?
+    } else {
+        Default::default()
+    };
+
     let old_cache_path = old_dirs.cache_dir().join("cache.yaml");
     let cache_dir = dirs.cache_dir();
     std::fs::create_dir_all(&cache_dir)?;
@@ -111,6 +131,12 @@ async fn main() -> Result<()> {
     if old_cache_path.exists() {
         std::fs::rename(&old_cache_path, &cache_path)?;
     }
+
+    let cache_size = cli
+        .cache_size
+        .or(config.cache_size)
+        .unwrap_or(2usize.pow(8));
+    let tries = cli.tries.or(config.tries).unwrap_or(2usize.pow(8));
 
     let file = OpenOptions::new()
         .read(true)
@@ -121,7 +147,7 @@ async fn main() -> Result<()> {
     let mut guard: RwLockWriteGuard<File> = lock.write().context("couldn't lock cache file")?;
 
     let cache: Cache = match guard.metadata()?.len() {
-        0 => Cache::new(cli.cache_size),
+        0 => Cache::new(cache_size),
         _ => Cache::load(from_reader::<&std::fs::File, CacheFile>(&guard)?, 65536),
     };
 
@@ -130,7 +156,7 @@ async fn main() -> Result<()> {
     let (tx, rx) = unbounded_channel();
 
     let cache_handle = tokio::spawn(receive_keys(rx, cache));
-    for _ in 0..cli.tries {
+    for _ in 0..tries {
         tokio::spawn(generate_identities(tx.clone(), min_strength));
     }
     drop(tx);

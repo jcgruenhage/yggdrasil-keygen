@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### 🚀 Features
 
 - Add command line parameters for overriding tries and cache size
+- Add config file for setting tries and cache size
 
 ### ⚙️ Miscellaneous Tasks
 
